@@ -1,54 +1,88 @@
 from collections import Counter, defaultdict
-from candidateGen import *
-import pdb
+from candidateGen import candidateGen
+import sys
+import os
+class myApriori():
+	def __init__(self):
+		self.item = defaultdict(list)
+		self.total = 0.0
+		self.f = []
+		self.f_sup = defaultdict(float)
+		return
+	def get(self,inputfile,limit):
+		count = 0
+		try:
+			with open(inputfile, 'rt') as file:
+				for line in file:
+					if (limit != -1):
+						if (count > limit):
+							file.close()
+							return
+					count += 1
+					transaction = line.split()
+					for t in transaction:
+						self.item[" "+t].append(count)
+					self.total += 1
+			file.close()
+			return
 
-def getTransaction(inputfile):
-    transaction_set = []
-    try:
-        with open(inputfile, 'rt') as file:
-            for line in file:
-                transaction = line.split()
-                transaction_set.append(transaction)
-        return transaction_set
+		except RuntimeError:
+			print "myApriori: Something wrong when reading file"
+			return
 
-    except:
-        print "Something wrong when reading file"
-        return []
+	def apriori(self,minsupport):
+		k = 1 
+		self.f.append(([]))
+		self.f.append(([]))
+		for key,value in self.item.iteritems():
+			if ((len(value)/self.total) >= minsupport):
+				self.f[k].append(key)
+				self.f_sup[key] = (len(value)/self.total) 
+		self.f[k] = sorted(self.f[k])
 
-def Apriori(transaction_set, minsupport):
-    init_set = defaultdict(int)
-    transaction_count = 0
+		k = 2
+		self.f.append(([]))
+		while (len(self.f[k-1]) != 0):
+			spawner = candidateGen()
+			spawner.push(self.f[k-1],k-1)
 
-    # create init itemsets
-    for transaction in transaction_set:
-        for item in transaction:
-            init_set[item] = init_set[item] + 1
-            transaction_count += 1
+			candidate = spawner.gen()
 
-    #find first frequent set
-    first_set = {item: frequency for (item, frequency) in init_set.iteritems()
-               if float(init_set[item]) / transaction_count >= minsupport}
-    freqset = []
-    freqset.append(first_set)
-    candidate_dict = Counter()
+			for item in candidate:
+				#intersection
+				l = []
+				for i in item:
+					l.append(self.item[i])
+				count = len(set(l[0]).intersection(*l))
 
+				if (count/self.total >= minsupport):
+					self.f[k].append(item)
+					self.f_sup[''.join(item)] = (count/self.total)
 
-    while len(freqset[-1]) != 0:
-        current_candidate = candidateGen([list(x) for x in freqset[-1].keys()])
-        pdb.set_trace()
-        for transaction in transaction_set:
-
-            for candidate_item in current_candidate:
-                if candidate_item in transaction:
-                    candidate_dict[tuple(candidate_item)] += 1
-
-        new_freqset = { item: freq for item, freq in candidate_dict.iteritems()
-                        if float(freq)/transaction_len >= minsupport }
-
-        freqset.append(new_freqset)
-
-    return freqset
-
+			k += 1
+			self.f.append(([]))
+		return self.f
+	def write(self,outputfile):
+		# Write output
+		try:
+			with open(outputfile, "wt") as file:
+				for i in self.f:
+					for j in i:
+						line = ''.join(j)
+						file.write(str(self.f_sup[line]))
+						file.write(line)
+						file.write("\n")
+			file.close()
+		except ValueError:
+			print "Cannot write file"
+			return
 if __name__ == "__main__":
-    transaction = getTransaction('retail.dat')
-    print len(Apriori(transaction, 0.0001))
+	rule = myApriori()
+	rule.get("retail1.dat",-1)
+	rule.apriori(0.4)
+	rule.write("output1.dat")
+	"""
+	rule.get(sys.argv[1],-1)
+	rule.apriori(float(sys.argv[3]))
+	rule.write(sys.argv[2])
+	"""
